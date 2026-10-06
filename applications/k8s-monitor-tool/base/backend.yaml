@@ -1,4 +1,14 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-telegram
+  namespace: k8s-monitor
+type: Opaque
+stringData:
+  TELEGRAM_BOT_TOKEN: "8753092746:AAH3iMsPg03V2q8TTK3aJ4OW2B3N6hrITLI"
+  TELEGRAM_CHAT_ID: "7178401844"
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
