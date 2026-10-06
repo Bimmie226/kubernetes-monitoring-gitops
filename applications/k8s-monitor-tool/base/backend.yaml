@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: k8s-monitor
+data:
+  K8S_CONFIG_MODE: "incluster"
+
+  DB_HOST: "mariadb"
+  DB_PORT: "3306"
+  DB_NAME: "k8s_monitor"
+  DB_USER: "k8s_monitor"
+
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_TTL: "10"
+  
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: k8s-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-monitor-backend
+  template:
+    metadata:
+      labels:
+        app: k8s-monitor-backend
+    spec:
+      serviceAccountName: k8s-monitor-backend
+
+      # Cho phép chạy trên control-plane của cụm lab single-node.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+      containers:
+        - name: backend
+          image: luongngocvu/k8s-tool-be:k8s-v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-telegram
+
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: MARIADB_PASSWORD
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: k8s-monitor
+spec:
+  type: ClusterIP
+  selector:
+    app: k8s-monitor-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: k8s-monitor
+spec:
+  replicas: 2 # Override replicas cho môi trường dev
